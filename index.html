@@ -136,6 +136,31 @@
     padding: 12px 24px;
     margin-top: 8px;
   }
+
+  /* v2 新增：這次的猜測回顧 */
+  .recap {
+    text-align: left;
+    background: var(--soft);
+    border-radius: 18px;
+    padding: 16px 18px;
+    margin: 18px 0 8px;
+  }
+  .recap-title {
+    font-size: 16px;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 12px;
+    color: var(--coral-dark);
+  }
+  .recap-item {
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 8px 0;
+    border-bottom: 1px dashed #C9DEEF;
+  }
+  .recap-item:last-child { border-bottom: none; }
+  .recap-q { color: #6B82A0; }
+  .recap-a { display: block; margin-top: 2px; font-weight: bold; }
 </style>
 </head>
 <body>
@@ -166,6 +191,13 @@
     <h1 id="endTitle"></h1>
     <div class="story-text" id="endText" style="text-align:center;"></div>
     <div class="ending-flow">🌧️ ➜ 🏰 ➜ 😊</div>
+
+    <!-- v2 新增：這次的猜測回顧 -->
+    <div class="recap" id="recapBox">
+      <div class="recap-title">🐻 這次波波的猜測</div>
+      <div id="recapList"></div>
+    </div>
+
     <button class="again-btn" id="againBtn">再讀一次 🔄</button>
   </div>
 
@@ -218,13 +250,15 @@
   };
 
   const SAVE_KEY = "story_bobo_rainy_page";
+  const CHOICES_KEY = "story_bobo_rainy_choices";   // v2 新增：存每頁的選擇
 
   let page = 0;        // 目前在第幾頁（0 起算）
   let picked = -1;     // 這一頁選了哪個選項
+  let choices = [];    // v2 新增：每頁選擇的暫存陣列
 
   const $ = (id) => document.getElementById(id);
 
-  // ── localStorage ──
+  // ── localStorage：進度 ──
   function savePage() {
     localStorage.setItem(SAVE_KEY, String(page));
   }
@@ -237,6 +271,25 @@
   }
   function clearPage() {
     localStorage.removeItem(SAVE_KEY);
+  }
+
+  // ── localStorage：選擇（v2 新增）──
+  // 結構：每頁存該頁選的選項 index，例如 [1, 0, 2, ...]；還沒選的頁用 null。
+  function saveChoices() {
+    localStorage.setItem(CHOICES_KEY, JSON.stringify(choices));
+  }
+  function loadChoices() {
+    const raw = localStorage.getItem(CHOICES_KEY);
+    if (raw === null) return [];
+    try {
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];   // 資料壞掉就當沒紀錄，不讓程式崩掉
+    }
+  }
+  function clearChoices() {
+    localStorage.removeItem(CHOICES_KEY);
   }
 
   // ── 畫面切換 ──
@@ -273,8 +326,15 @@
       const btn = document.createElement("button");
       btn.className = "opt";
       btn.textContent = opt;
+      // v2：若這頁先前已選過（接續讀回來），把選擇還原顯示
+      if (choices[page] === i) {
+        btn.classList.add("picked");
+        picked = i;
+      }
       btn.onclick = () => {
         picked = i;
+        choices[page] = i;          // v2：選的當下就記進陣列
+        saveChoices();              // v2：立刻寫入 localStorage
         document.querySelectorAll(".opt").forEach(o => o.classList.remove("picked"));
         btn.classList.add("picked");
         $("nextBtn").disabled = false;
@@ -282,8 +342,8 @@
       list.appendChild(btn);
     });
 
-    // 沒選之前不能翻頁（鼓勵先猜）
-    $("nextBtn").disabled = true;
+    // 沒選之前不能翻頁（鼓勵先猜）；若還原後已有選擇，直接解鎖
+    $("nextBtn").disabled = (picked === -1);
     $("nextBtn").textContent = (page === STORY.length - 1) ? "看看結局 →" : "翻下一頁 →";
 
     show("screenStory");
@@ -292,10 +352,11 @@
   function goNext() {
     page++;
     if (page >= STORY.length) {
-      // 讀完，清除進度，下次從頭開始
+      // 讀完：清除進度（下次從頭），但保留選擇供結尾回顧
       clearPage();
       $("endTitle").textContent = ENDING.title;
       $("endText").textContent = ENDING.text;
+      renderRecap();            // v2：產生「這次波波的猜測」
       show("screenEnd");
     } else {
       savePage();
@@ -303,16 +364,37 @@
     }
   }
 
+  // ── v2 新增：結尾回顧 ──
+  function renderRecap() {
+    const box = $("recapList");
+    box.innerHTML = "";
+    STORY.forEach((p, i) => {
+      const choiceIdx = choices[i];
+      const answer = (choiceIdx !== null && choiceIdx !== undefined)
+        ? p.options[choiceIdx]
+        : "（這頁沒有猜）";
+      const item = document.createElement("div");
+      item.className = "recap-item";
+      item.innerHTML =
+        `<span class="recap-q">第 ${i + 1} 頁：${p.ask}</span>` +
+        `<span class="recap-a">👉 ${answer}</span>`;
+      box.appendChild(item);
+    });
+  }
+
   // ── 事件 ──
   $("startBtn").onclick = () => {
     const saved = loadPage();
     page = (saved !== null) ? saved : 0;
+    choices = loadChoices();      // v2：接續讀時把先前選擇載回來
     renderStory();
   };
   $("nextBtn").onclick = goNext;
   $("againBtn").onclick = () => {
     page = 0;
+    choices = [];                 // v2：清空暫存
     clearPage();
+    clearChoices();               // v2：清掉 localStorage 的選擇
     renderCover();
   };
 
