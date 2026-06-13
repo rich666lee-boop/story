@@ -90,6 +90,9 @@
     background: #FFF3E9;
   }
 
+  /* v2.1 新增：上一頁／下一頁並排 */
+  .nav-row { display: flex; gap: 10px; margin-top: 18px; }
+
   .next-btn {
     font-size: 19px;
     font-weight: bold;
@@ -97,8 +100,7 @@
     background: var(--coral);
     border-radius: 18px;
     padding: 15px;
-    width: 100%;
-    margin-top: 18px;
+    flex: 1;
     box-shadow: 0 5px 0 var(--coral-dark);
   }
   .next-btn:active { box-shadow: 0 2px 0 var(--coral-dark); transform: translateY(3px); }
@@ -107,6 +109,18 @@
     box-shadow: 0 5px 0 #AAB9CC;
     cursor: not-allowed;
   }
+
+  /* v2.1 新增：上一頁按鈕 */
+  .prev-btn {
+    font-size: 17px;
+    font-weight: bold;
+    color: var(--ink);
+    background: var(--card);
+    border: 3px solid var(--sky);
+    border-radius: 18px;
+    padding: 13px 18px;
+  }
+  .prev-btn:hover { border-color: var(--coral); }
 
   .start-btn {
     font-size: 20px;
@@ -181,7 +195,11 @@
     <div class="story-text" id="storyText"></div>
     <div class="ask" id="askText"></div>
     <div class="options" id="optionList"></div>
-    <button class="next-btn" id="nextBtn">翻下一頁 →</button>
+    <!-- v2.1：上一頁／下一頁並排 -->
+    <div class="nav-row">
+      <button class="prev-btn" id="prevBtn">← 上一頁</button>
+      <button class="next-btn" id="nextBtn">翻下一頁 →</button>
+    </div>
     <div class="page-num" id="pageNum"></div>
   </div>
 
@@ -192,7 +210,7 @@
     <div class="story-text" id="endText" style="text-align:center;"></div>
     <div class="ending-flow">🌧️ ➜ 🏰 ➜ 😊</div>
 
-    <!-- v2 新增：這次的猜測回顧 -->
+    <!-- v2：這次的猜測回顧 -->
     <div class="recap" id="recapBox">
       <div class="recap-title">🐻 這次波波的猜測</div>
       <div id="recapList"></div>
@@ -250,11 +268,11 @@
   };
 
   const SAVE_KEY = "story_bobo_rainy_page";
-  const CHOICES_KEY = "story_bobo_rainy_choices";   // v2 新增：存每頁的選擇
+  const CHOICES_KEY = "story_bobo_rainy_choices";   // v2：存每頁的選擇
 
   let page = 0;        // 目前在第幾頁（0 起算）
   let picked = -1;     // 這一頁選了哪個選項
-  let choices = [];    // v2 新增：每頁選擇的暫存陣列
+  let choices = [];    // v2：每頁選擇的暫存陣列
 
   const $ = (id) => document.getElementById(id);
 
@@ -273,7 +291,7 @@
     localStorage.removeItem(SAVE_KEY);
   }
 
-  // ── localStorage：選擇（v2 新增）──
+  // ── localStorage：選擇（v2）──
   // 結構：每頁存該頁選的選項 index，例如 [1, 0, 2, ...]；還沒選的頁用 null。
   function saveChoices() {
     localStorage.setItem(CHOICES_KEY, JSON.stringify(choices));
@@ -326,7 +344,7 @@
       const btn = document.createElement("button");
       btn.className = "opt";
       btn.textContent = opt;
-      // v2：若這頁先前已選過（接續讀回來），把選擇還原顯示
+      // v2：若這頁先前已選過（接續或往回翻），把選擇還原顯示
       if (choices[page] === i) {
         btn.classList.add("picked");
         picked = i;
@@ -342,9 +360,12 @@
       list.appendChild(btn);
     });
 
-    // 沒選之前不能翻頁（鼓勵先猜）；若還原後已有選擇，直接解鎖
+    // 沒選之前不能翻頁（鼓勵先猜）；若已有選擇，直接解鎖
     $("nextBtn").disabled = (picked === -1);
     $("nextBtn").textContent = (page === STORY.length - 1) ? "看看結局 →" : "翻下一頁 →";
+
+    // v2.1：第一頁不顯示「上一頁」，其餘顯示
+    $("prevBtn").style.display = (page === 0) ? "none" : "block";
 
     show("screenStory");
   }
@@ -364,7 +385,16 @@
     }
   }
 
-  // ── v2 新增：結尾回顧 ──
+  // ── v2.1 新增：上一頁 ──
+  function goPrev() {
+    if (page > 0) {
+      page--;
+      savePage();               // 同步更新進度，關掉重開接續到這頁
+      renderStory();            // 選擇已存，renderStory 會自動把該頁選項還原
+    }
+  }
+
+  // ── v2：結尾回顧 ──
   function renderRecap() {
     const box = $("recapList");
     box.innerHTML = "";
@@ -390,6 +420,7 @@
     renderStory();
   };
   $("nextBtn").onclick = goNext;
+  $("prevBtn").onclick = goPrev;  // v2.1
   $("againBtn").onclick = () => {
     page = 0;
     choices = [];                 // v2：清空暫存
