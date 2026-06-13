@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小熊波波的雨天</title>
+<style>
+  :root {
+    --sky: #BDE3FF;
+    --card: #FFFFFF;
+    --ink: #324B6E;
+    --coral: #FF7B54;
+    --coral-dark: #E5633D;
+    --leaf: #4CC36B;
+    --star: #FFD449;
+    --soft: #EAF6FF;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Comic Sans MS", "微軟正黑體", sans-serif;
+    background: var(--sky);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 440px;
+    background: var(--card);
+    border-radius: 28px;
+    box-shadow: 0 12px 32px rgba(50,75,110,0.18);
+    padding: 28px 24px 32px;
+    text-align: center;
+  }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  /* 封面 */
+  .cover-emoji { font-size: 72px; margin-bottom: 8px; }
+  h1 { font-size: 28px; margin-bottom: 6px; }
+  .subtitle { font-size: 15px; color: #6B82A0; margin-bottom: 24px; }
+
+  /* 故事頁 */
+  .page-emoji { font-size: 64px; margin: 8px 0 14px; }
+  .story-text {
+    font-size: 19px;
+    line-height: 1.9;
+    text-align: left;
+    background: var(--soft);
+    border-radius: 18px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+  }
+  .page-num { font-size: 13px; color: #9AAEC6; margin-bottom: 14px; }
+
+  /* 預測題 */
+  .ask {
+    font-size: 17px;
+    font-weight: bold;
+    background: #FFF3E9;
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    transition: transform 0.08s, box-shadow 0.12s;
+  }
+  button:active { transform: scale(0.97); }
+
+  .opt {
+    font-size: 17px;
+    background: var(--card);
+    border: 3px solid var(--sky);
+    border-radius: 16px;
+    padding: 14px;
+    color: var(--ink);
+    text-align: left;
+  }
+  .opt:hover { border-color: var(--coral); }
+  .opt.picked {
+    border-color: var(--coral);
+    background: #FFF3E9;
+  }
+
+  .next-btn {
+    font-size: 19px;
+    font-weight: bold;
+    color: #fff;
+    background: var(--coral);
+    border-radius: 18px;
+    padding: 15px;
+    width: 100%;
+    margin-top: 18px;
+    box-shadow: 0 5px 0 var(--coral-dark);
+  }
+  .next-btn:active { box-shadow: 0 2px 0 var(--coral-dark); transform: translateY(3px); }
+  .next-btn:disabled {
+    background: #CBD7E6;
+    box-shadow: 0 5px 0 #AAB9CC;
+    cursor: not-allowed;
+  }
+
+  .start-btn {
+    font-size: 20px;
+    font-weight: bold;
+    color: #fff;
+    background: var(--leaf);
+    border-radius: 18px;
+    padding: 16px 32px;
+    box-shadow: 0 5px 0 #3AA859;
+  }
+  .start-btn:active { box-shadow: 0 2px 0 #3AA859; transform: translateY(3px); }
+
+  .resume {
+    display: block;
+    font-size: 13px;
+    color: #6B82A0;
+    margin-top: 12px;
+  }
+
+  /* 結尾 */
+  .ending-flow { font-size: 40px; letter-spacing: 8px; margin: 16px 0; }
+  .again-btn {
+    font-size: 17px;
+    color: var(--coral-dark);
+    background: #FFF3E9;
+    border-radius: 14px;
+    padding: 12px 24px;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 封面 -->
+  <div class="screen active" id="screenCover">
+    <div class="cover-emoji">🐻☔</div>
+    <h1>小熊波波的雨天</h1>
+    <p class="subtitle">一起讀，一起猜猜看接下來會怎樣？</p>
+    <button class="start-btn" id="startBtn">開始讀故事 📖</button>
+    <span class="resume" id="resumeHint"></span>
+  </div>
+
+  <!-- 故事頁 -->
+  <div class="screen" id="screenStory">
+    <div class="page-emoji" id="pageEmoji"></div>
+    <div class="story-text" id="storyText"></div>
+    <div class="ask" id="askText"></div>
+    <div class="options" id="optionList"></div>
+    <button class="next-btn" id="nextBtn">翻下一頁 →</button>
+    <div class="page-num" id="pageNum"></div>
+  </div>
+
+  <!-- 結尾 -->
+  <div class="screen" id="screenEnd">
+    <div class="page-emoji">🌈</div>
+    <h1 id="endTitle"></h1>
+    <div class="story-text" id="endText" style="text-align:center;"></div>
+    <div class="ending-flow">🌧️ ➜ 🏰 ➜ 😊</div>
+    <button class="again-btn" id="againBtn">再讀一次 🔄</button>
+  </div>
+
+</div>
+
+<script>
+  // ── 故事資料 ──
+  const STORY = [
+    {
+      emoji: "🪟🌧️",
+      text: "早上，波波打開窗戶，看見天空灰灰的，還飄著毛毛雨。今天本來要和好朋友兔兔去公園玩的。",
+      ask: "下雨了，你猜波波會怎麼做？",
+      options: ["🛏️ 躲回被窩繼續睡", "☎️ 打電話問兔兔怎麼辦", "😢 坐在窗邊難過"]
+    },
+    {
+      emoji: "🐻☎️",
+      text: "波波拿起電話打給兔兔：「下雨了，我們還能一起玩嗎？」兔兔在電話那頭笑著說：「當然可以！你來我家，我有個好點子！」",
+      ask: "兔兔的好點子會是什麼？",
+      options: ["🏠 在家裡蓋一個祕密基地", "🍪 一起烤餅乾", "🎨 畫畫比賽"]
+    },
+    {
+      emoji: "🐰🛋️",
+      text: "波波撐著傘走到兔兔家。兔兔搬出好多抱枕和一條大大的毯子：「我們來蓋一座城堡吧！」",
+      ask: "抱枕和毯子可以怎麼變成城堡？",
+      options: ["🪑 鋪在椅子中間當屋頂", "🛋️ 堆在沙發上當城牆", "🤹 兩個都做"]
+    },
+    {
+      emoji: "🏰",
+      text: "他們把毯子蓋在兩張椅子中間，再用抱枕圍成一圈牆。一座軟綿綿的城堡完成了！鑽進去，外面的雨聲變得好遠。",
+      ask: "在城堡裡，他們接下來會玩什麼？",
+      options: ["🔦 用手電筒講故事", "🐻 玩躲貓貓", "🎵 一起唱歌"]
+    },
+    {
+      emoji: "🔦📖",
+      text: "兔兔拿出手電筒：「我來說一個故事！」波波抱著抱枕，聽得眼睛一閃一閃。窗外的雨，變成了故事裡的大海。",
+      ask: "故事說到一半，突然發生什麼事？",
+      options: ["💡 停電了", "🌈 雨停了，出太陽了", "🍽️ 肚子餓了"]
+    },
+    {
+      emoji: "🥞",
+      text: "「咕嚕——」兩個人的肚子同時叫了起來，他們笑成一團。兔兔媽媽端來熱熱的鬆餅：「給城堡裡的探險家加油！」",
+      ask: "吃完鬆餅，雨還在下，你猜他們會？",
+      options: ["🏰 回到城堡繼續玩", "👋 波波該回家了", "🪟 跑去看窗外"]
+    }
+  ];
+
+  const ENDING = {
+    title: "最好玩的雨天",
+    text: "雨一直下到傍晚，但他們一點也不無聊。波波回家的路上想：原來下雨天，也可以是最好玩的一天。"
+  };
+
+  const SAVE_KEY = "story_bobo_rainy_page";
+
+  let page = 0;        // 目前在第幾頁（0 起算）
+  let picked = -1;     // 這一頁選了哪個選項
+
+  const $ = (id) => document.getElementById(id);
+
+  // ── localStorage ──
+  function savePage() {
+    localStorage.setItem(SAVE_KEY, String(page));
+  }
+  function loadPage() {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw === null) return null;
+    const n = parseInt(raw, 10);
+    if (isNaN(n) || n < 0 || n >= STORY.length) return null;
+    return n;
+  }
+  function clearPage() {
+    localStorage.removeItem(SAVE_KEY);
+  }
+
+  // ── 畫面切換 ──
+  function show(id) {
+    document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+    $(id).classList.add("active");
+  }
+
+  // ── 封面：有沒有讀到一半 ──
+  function renderCover() {
+    const saved = loadPage();
+    if (saved !== null && saved > 0) {
+      $("resumeHint").textContent = `上次讀到第 ${saved + 1} 頁，可以接著讀喔！`;
+      $("startBtn").textContent = "接著讀 📖";
+    } else {
+      $("resumeHint").textContent = "";
+      $("startBtn").textContent = "開始讀故事 📖";
+    }
+    show("screenCover");
+  }
+
+  // ── 故事頁 ──
+  function renderStory() {
+    const p = STORY[page];
+    picked = -1;
+    $("pageEmoji").textContent = p.emoji;
+    $("storyText").textContent = p.text;
+    $("askText").textContent = p.ask;
+    $("pageNum").textContent = `第 ${page + 1} 頁 / 共 ${STORY.length} 頁`;
+
+    const list = $("optionList");
+    list.innerHTML = "";
+    p.options.forEach((opt, i) => {
+      const btn = document.createElement("button");
+      btn.className = "opt";
+      btn.textContent = opt;
+      btn.onclick = () => {
+        picked = i;
+        document.querySelectorAll(".opt").forEach(o => o.classList.remove("picked"));
+        btn.classList.add("picked");
+        $("nextBtn").disabled = false;
+      };
+      list.appendChild(btn);
+    });
+
+    // 沒選之前不能翻頁（鼓勵先猜）
+    $("nextBtn").disabled = true;
+    $("nextBtn").textContent = (page === STORY.length - 1) ? "看看結局 →" : "翻下一頁 →";
+
+    show("screenStory");
+  }
+
+  function goNext() {
+    page++;
+    if (page >= STORY.length) {
+      // 讀完，清除進度，下次從頭開始
+      clearPage();
+      $("endTitle").textContent = ENDING.title;
+      $("endText").textContent = ENDING.text;
+      show("screenEnd");
+    } else {
+      savePage();
+      renderStory();
+    }
+  }
+
+  // ── 事件 ──
+  $("startBtn").onclick = () => {
+    const saved = loadPage();
+    page = (saved !== null) ? saved : 0;
+    renderStory();
+  };
+  $("nextBtn").onclick = goNext;
+  $("againBtn").onclick = () => {
+    page = 0;
+    clearPage();
+    renderCover();
+  };
+
+  // 啟動
+  renderCover();
+</script>
+</body>
+</html>
